@@ -13,11 +13,11 @@ alias dtype = DType.float32
 fn add_10_blocks(
     output: UnsafePointer[Scalar[dtype]],
     a: UnsafePointer[Scalar[dtype]],
-    size: Int,
+    size: UInt,
 ):
     i = block_dim.x * block_idx.x + thread_idx.x
-    # FILL ME IN (roughly 2 lines)
-
+    if i < size:
+        output[i] = a[i] + 10
 
 # ANCHOR_END: add_10_blocks
 

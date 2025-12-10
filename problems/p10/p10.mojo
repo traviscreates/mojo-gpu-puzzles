@@ -5,7 +5,7 @@ from layout import Layout, LayoutTensor
 from testing import assert_equal
 from sys import argv
 
-# ANCHOR: shared_memory_race
+# ANCHOR: shared_memory_race (fixed)
 
 alias SIZE = 2
 alias BLOCKS_PER_GRID = 1
@@ -29,8 +29,13 @@ fn shared_memory_race(
         address_space = AddressSpace.SHARED,
     ].stack_allocation()
 
-    if row < size and col < size:
-        shared_sum[0] += a[row, col]
+    if row == 0 and col == 0:
+        local_sum = Scalar[dtype](0.0)
+        for r in range(size):
+            for c in range(size):
+                local_sum += rebind[Scalar[dtype]](1[r, c])
+
+        shared_sum[0] += local_sum
 
     barrier()
 
@@ -41,7 +46,7 @@ fn shared_memory_race(
 # ANCHOR_END: shared_memory_race
 
 
-# ANCHOR: add_10_2d_no_guard
+# ANCHOR: add_10_2d_no_guard (fixed)
 fn add_10_2d(
     output: LayoutTensor[mut=True, dtype, layout],
     a: LayoutTensor[mut=True, dtype, layout],
@@ -49,7 +54,8 @@ fn add_10_2d(
 ):
     row = thread_idx.y
     col = thread_idx.x
-    output[row, col] = a[row, col] + 10.0
+    if row < size and col < size:
+        output[row, col] = a[row, col] + 10.0
 
 
 # ANCHOR_END: add_10_2d_no_guard

@@ -12,7 +12,7 @@ comptime BLOCKS_PER_GRID = 1
 comptime THREADS_PER_BLOCK = SIZE
 comptime dtype = DType.float32
 comptime vector_layout = Layout.row_major(SIZE)
-comptime ITER = 2
+comptime ITER = 3
 
 
 # ANCHOR: first_crash
@@ -21,7 +21,7 @@ fn add_10(
     a: UnsafePointer[Scalar[dtype], MutAnyOrigin],
 ):
     i = thread_idx.x
-    output[i] = a[i] + 10.0
+    output[i] = a[i] + 10
 
 
 # ANCHOR_END: first_crash
@@ -75,7 +75,7 @@ fn collaborative_filter(
         # Apply collaborative filter with neighbors
         if thread_id > 0:
             shared_workspace[thread_id] += shared_workspace[thread_id - 1] * 0.5
-        barrier()
+    barrier()
 
     # Phase 3: Final synchronization and output
     barrier()
@@ -106,7 +106,8 @@ def main():
         print()
 
         with DeviceContext() as ctx:
-            input_buf = ctx.enqueue_create_buffer[dtype](0)
+            input_buf = ctx.enqueue_create_buffer[dtype](SIZE)
+            input_buf.enqueue_fill(0)
             result_buf = ctx.enqueue_create_buffer[dtype](SIZE)
             result_buf.enqueue_fill(0)
 
@@ -121,7 +122,32 @@ def main():
             ctx.synchronize()
 
             with result_buf.map_to_host() as result_host:
-                print("result:", result_host)
+                # Expected buffer results
+                expected_0 = Scalar[dtype](10.0)
+                expected_1 = Scalar[dtype](10.0)
+                expected_2 = Scalar[dtype](10.0)
+                expected_3 = Scalar[dtype](10.0)
+                print("Expected: [10.0, 10.0, 10.0, 10.0]")
+
+                # Check if results match expected pattern
+                matches = True
+                if abs(result_host[0] - expected_0) > 0.0001:
+                    matches = False
+                if abs(result_host[1] - expected_1) > 0.0001:
+                    matches = False
+                if abs(result_host[2] - expected_2) > 0.0001:
+                    matches = False
+                if abs(result_host[3] - expected_3) > 0.0001:
+                    matches = False
+
+                if matches:
+                    print(
+                        "[PASS] Test PASSED - Result buffer values are correct"
+                    )
+                else:
+                    print(
+                        "[FAIL] Test FAILED - Result buffer values are incorrect!"
+                    )
 
     elif argv()[1] == "--second-case":
         print("This program computes sliding window sums for each position...")

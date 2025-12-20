@@ -1,12 +1,10 @@
-from testing import assert_equal
-from gpu.host import DeviceContext
-
-# ANCHOR: dot_product_layout_tensor
 from gpu import thread_idx, block_idx, block_dim, barrier
+from gpu.host import DeviceContext
 from gpu.memory import AddressSpace
 from layout import Layout, LayoutTensor
+from testing import assert_equal
 
-
+# ANCHOR: dot_product_layout_tensor
 comptime TPB = 8
 comptime SIZE = 8
 comptime BLOCKS_PER_GRID = (1, 1)
@@ -24,8 +22,30 @@ fn dot_product[
     b: LayoutTensor[dtype, in_layout, ImmutAnyOrigin],
     size: UInt,
 ):
-    # FILL ME IN (roughly 13 lines)
-    ...
+    global_i = block_dim.x * block_idx.x + thread_idx.x
+    local_i = thread_idx.x
+    shared = LayoutTensor[
+        dtype,
+        Layout.row_major(TPB),
+        MutAnyOrigin,
+        address_space=AddressSpace.SHARED,
+    ].stack_allocation()
+
+    if global_i < size:
+        shared[local_i] = a[global_i] * b[global_i]
+    
+    barrier()
+
+    stride = UInt(TPB // 2)
+    while stride > 0:
+        if local_i < stride:
+            shared[local_i] += shared[local_i + stride]
+        
+        barrier()
+        stride //= 2
+
+    if local_i == 0:
+        output[0] = shared[0]
 
 
 # ANCHOR_END: dot_product_layout_tensor

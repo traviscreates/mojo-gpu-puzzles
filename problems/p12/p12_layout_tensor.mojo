@@ -39,8 +39,7 @@ fn dot_product[
     stride = UInt(TPB // 2)
     while stride > 0:
         if local_i < stride:
-            shared[local_i] += shared[local_i + stride]
-        
+            shared[local_i] += shared[local_i + stride] 
         barrier()
         stride //= 2
 
